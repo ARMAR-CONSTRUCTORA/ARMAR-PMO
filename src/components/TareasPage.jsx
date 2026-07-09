@@ -42,61 +42,34 @@ const RECORDATORIO_OPTS = [
   { value: 2880, label: '2 días antes' },
 ]
 
-function descargarICS(tarea, proyectoNombre) {
-  const titulo = `[PMO] ${tarea.titulo}${proyectoNombre ? ' — ' + proyectoNombre : ''}`
-  const desc = [
-    tarea.descripcion || '',
-    `Prioridad: ${tarea.prioridad || 'normal'}`,
-    'Creado desde ARMAR PMO',
-  ].filter(Boolean).join('\\n')
+function googleCalendarUrl(tarea, proyectoNombre) {
+  const base = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+  const title = encodeURIComponent(`[PMO] ${tarea.titulo}${proyectoNombre ? ' — ' + proyectoNombre : ''}`)
 
-  let dtStart, dtEnd
+  let dates = ''
   if (tarea.fecha_vencimiento) {
     const d = tarea.fecha_vencimiento.replace(/-/g, '')
     if (tarea.hora_vencimiento) {
       const [h, m] = tarea.hora_vencimiento.split(':')
-      dtStart = `${d}T${h}${m}00`
+      const start = `${d}T${h}${m}00`
       const endH = String(parseInt(h) + 1).padStart(2, '0')
-      dtEnd = `${d}T${endH}${m}00`
+      const end = `${d}T${endH}${m}00`
+      dates = `&dates=${start}/${end}`
     } else {
-      dtStart = `${d}`
-      dtEnd = `${d}`
+      dates = `&dates=${d}/${d}`
     }
-  } else {
-    const now = new Date()
-    dtStart = now.toISOString().replace(/[-:]/g, '').slice(0, 15)
-    dtEnd = dtStart
   }
 
   const rec = Number(tarea.recordatorio_minutos)
-  const alarma = rec > 0 ? `BEGIN:VALARM\r\nTRIGGER:-PT${rec}M\r\nACTION:DISPLAY\r\nDESCRIPTION:Recordatorio PMO\r\nEND:VALARM\r\n` : ''
+  const recLabel = RECORDATORIO_OPTS.find(o => o.value === rec)?.label || ''
+  const detailLines = [
+    tarea.descripcion || '',
+    `Prioridad: ${tarea.prioridad || 'normal'}`,
+    rec > 0 ? `⏰ Recordatorio sugerido: ${recLabel} — configurarlo en "Más opciones" > Notificaciones` : '',
+    'Creado desde ARMAR PMO',
+  ].filter(Boolean).join('\n')
 
-  const uid = `pmo-${tarea.id || Date.now()}@armar-pmo`
-  const isAllDay = !tarea.hora_vencimiento
-  const dateType = isAllDay ? 'DATE' : 'DATE-TIME'
-
-  const ics = [
-    'BEGIN:VCALENDAR',
-    'VERSION:2.0',
-    'PRODID:-//ARMAR PMO//ES',
-    'BEGIN:VEVENT',
-    `UID:${uid}`,
-    `SUMMARY:${titulo}`,
-    `DESCRIPTION:${desc}`,
-    `DTSTART;VALUE=${dateType}:${dtStart}`,
-    `DTEND;VALUE=${dateType}:${dtEnd}`,
-    alarma.trimEnd(),
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ].filter(Boolean).join('\r\n')
-
-  const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${tarea.titulo.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.ics`
-  a.click()
-  URL.revokeObjectURL(url)
+  return `${base}&text=${title}${dates}&details=${encodeURIComponent(detailLines)}`
 }
 
 const EMPTY = { titulo: '', descripcion: '', proyecto_armar_id: '', tipo: 'manual', estado: 'pendiente', prioridad: 'normal', fecha_vencimiento: '', hora_vencimiento: '', recordatorio_minutos: 60, origen: 'manual' }
@@ -215,11 +188,11 @@ export default function TareasPage({ proyectos, usuario }) {
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                       <span style={{ fontSize: 11, fontWeight: 600, background: pr.bg, color: pr.color, padding: '2px 8px', borderRadius: 10 }}>{pr.label}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, background: tp.bg, color: tp.color, padding: '2px 8px', borderRadius: 10 }}>{tp.label}</span>
-                      <button onClick={() => descargarICS(t, proy?.nombre)}
-                          title="Descargar evento para Google/Apple Calendar"
-                          style={{ width: 28, height: 28, borderRadius: 8, background: '#EBF5FB', border: '1px solid #BFDBFE', cursor: 'pointer', fontSize: 14 }}>
+                      <a href={googleCalendarUrl(t, proy?.nombre)} target="_blank" rel="noreferrer"
+                          title="Abrir en Google Calendar"
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#EBF5FB', border: '1px solid #BFDBFE', cursor: 'pointer', textDecoration: 'none', fontSize: 14 }}>
                           📅
-                        </button>
+                        </a>
                       <button onClick={() => abrirEditar(t)}
                         style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #E0DDD8', background: 'white', cursor: 'pointer', fontSize: 14 }}>
                         ✏️
@@ -311,10 +284,12 @@ export default function TareasPage({ proyectos, usuario }) {
                 style={{ flex: 1, padding: '11px', background: orange, color: 'white', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: saving ? 0.7 : 1 }}>
                 {saving ? 'Guardando…' : form.id ? 'Guardar cambios' : 'Crear tarea'}
               </button>
-              <button type="button" onClick={() => descargarICS(form, proyectos.find(p => p.id === form.proyecto_armar_id)?.nombre)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: '#4285F4', color: 'white', borderRadius: 10, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
-                📅 Agregar al calendario
-              </button>
+              {form.fecha_vencimiento && (
+                <a href={googleCalendarUrl(form, proyectos.find(p => p.id === form.proyecto_armar_id)?.nombre)} target="_blank" rel="noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: '#4285F4', color: 'white', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                  📅 Abrir en Google Calendar
+                </a>
+              )}
             </div>
           </div>
         </div>

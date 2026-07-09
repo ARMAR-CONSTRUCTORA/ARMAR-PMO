@@ -6,12 +6,21 @@ export const supabase = createClient(
 )
 
 export async function loginUsuario(nombre, password) {
-  const bcryptMod = await import('bcryptjs')
-  const bcrypt = bcryptMod.default || bcryptMod
   const { data, error } = await supabase.from('usuarios').select('*').eq('nombre', nombre).single()
+  console.log('DB data:', data, 'error:', error)
   if (error || !data) return null
-  const match = await bcrypt.compare(password, data.password_hash)
-  if (!match) return null
+  try {
+    const bcryptMod = await import('bcryptjs')
+    console.log('bcryptMod keys:', Object.keys(bcryptMod))
+    const bcrypt = bcryptMod.default || bcryptMod
+    console.log('bcrypt.compare type:', typeof bcrypt.compare)
+    const match = await bcrypt.compare(password, data.password_hash)
+    console.log('match:', match)
+    if (!match) return null
+  } catch (e) {
+    console.error('bcrypt error:', e)
+    return null
+  }
   return { id: data.id, nombre: data.nombre }
 }
 

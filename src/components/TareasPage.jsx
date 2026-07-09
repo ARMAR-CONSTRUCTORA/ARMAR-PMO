@@ -32,16 +32,53 @@ function fechaChip(fecha) {
   return { label: fecha, bg: '#F3F4F6', color: '#6B7280' }
 }
 
+const RECORDATORIO_OPTS = [
+  { value: 0,    label: 'Sin recordatorio' },
+  { value: 10,   label: '10 minutos antes' },
+  { value: 30,   label: '30 minutos antes' },
+  { value: 60,   label: '1 hora antes' },
+  { value: 120,  label: '2 horas antes' },
+  { value: 1440, label: '1 día antes' },
+  { value: 2880, label: '2 días antes' },
+]
+
 function googleCalendarUrl(tarea, proyectoNombre) {
   const base = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
   const title = encodeURIComponent(`[PMO] ${tarea.titulo}${proyectoNombre ? ' — ' + proyectoNombre : ''}`)
-  const fecha = tarea.fecha_vencimiento?.replace(/-/g, '') || ''
-  const details = encodeURIComponent(tarea.descripcion || `Tarea PMO ARMAR · Prioridad: ${tarea.prioridad}`)
-  const reminder = tarea.fecha_recordatorio ? `&dates=${fecha}/${fecha}` : (fecha ? `&dates=${fecha}/${fecha}` : '')
-  return `${base}&text=${title}${reminder}&details=${details}`
+
+  let dates = ''
+  if (tarea.fecha_vencimiento) {
+    const d = tarea.fecha_vencimiento.replace(/-/g, '')
+    if (tarea.hora_vencimiento) {
+      const [h, m] = tarea.hora_vencimiento.split(':')
+      const start = `${d}T${h}${m}00`
+      // fin = 1 hora después
+      const endH = String(parseInt(h) + 1).padStart(2, '0')
+      const end = `${d}T${endH}${m}00`
+      dates = `&dates=${start}/${end}`
+    } else {
+      dates = `&dates=${d}/${d}`
+    }
+  }
+
+  const rec = tarea.recordatorio_minutos
+  const recLabel = rec ? (RECORDATORIO_OPTS.find(o => o.value === Number(rec))?.label || '') : ''
+  const detailText = [
+    tarea.descripcion || '',
+    `Prioridad: ${tarea.prioridad || 'normal'}`,
+    recLabel ? `Recordatorio: ${recLabel}` : '',
+    'Creado desde ARMAR PMO',
+  ].filter(Boolean).join('\n')
+
+  const details = encodeURIComponent(detailText)
+
+  // crm=POPUP activa recordatorio popup en Google Calendar
+  const reminder = rec && rec > 0 ? `&crm=POPUP&crm_minutes=${rec}` : ''
+
+  return `${base}&text=${title}${dates}&details=${details}${reminder}`
 }
 
-const EMPTY = { titulo: '', descripcion: '', proyecto_armar_id: '', tipo: 'manual', estado: 'pendiente', prioridad: 'normal', fecha_vencimiento: '', fecha_recordatorio: '', origen: 'manual' }
+const EMPTY = { titulo: '', descripcion: '', proyecto_armar_id: '', tipo: 'manual', estado: 'pendiente', prioridad: 'normal', fecha_vencimiento: '', hora_vencimiento: '', recordatorio_minutos: 60, origen: 'manual' }
 
 export default function TareasPage({ proyectos, usuario }) {
   const [tareas, setTareas] = useState([])
@@ -239,8 +276,14 @@ export default function TareasPage({ proyectos, usuario }) {
                 <input type="date" value={form.fecha_vencimiento} onChange={e => setForm(f => ({ ...f, fecha_vencimiento: e.target.value }))} style={inputSt} />
               </div>
               <div>
-                <Lbl>Recordatorio</Lbl>
-                <input type="date" value={form.fecha_recordatorio} onChange={e => setForm(f => ({ ...f, fecha_recordatorio: e.target.value }))} style={inputSt} />
+                <Lbl>Hora</Lbl>
+                <input type="time" value={form.hora_vencimiento || ''} onChange={e => setForm(f => ({ ...f, hora_vencimiento: e.target.value }))} style={inputSt} />
+              </div>
+              <div style={{ gridColumn: '1 / -1' }}>
+                <Lbl>Recordatorio en Google Calendar</Lbl>
+                <select value={form.recordatorio_minutos ?? 60} onChange={e => setForm(f => ({ ...f, recordatorio_minutos: Number(e.target.value) }))} style={inputSt}>
+                  {RECORDATORIO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
               </div>
             </div>
 

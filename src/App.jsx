@@ -5,6 +5,7 @@ import DashboardPMO from './components/DashboardPMO'
 import ProyectosBoard from './components/ProyectosBoard'
 import AlertasPage from './components/AlertasPage'
 import CalendarioMaestro from './components/CalendarioMaestro'
+import ObrasPage from './components/ObrasPage'
 import LoginPage from './components/LoginPage'
 
 export default function App() {
@@ -57,9 +58,10 @@ export default function App() {
         {loading && !dataLoaded
           ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#9CA3AF', fontSize: 14 }}>Cargando datos…</div>
           : <>
-              {page === 'dashboard'  && <DashboardPMO    {...props} />}
-              {page === 'proyectos'  && <ProyectosBoard  {...props} />}
-              {page === 'alertas'    && <AlertasPage     {...props} />}
+              {page === 'dashboard'  && <DashboardPMO      {...props} />}
+              {page === 'proyectos'  && <ProyectosBoard   {...props} />}
+              {page === 'obras'      && <ObrasPage        obras={obras} proyectos={proyectos} />}
+              {page === 'alertas'    && <AlertasPage      {...props} />}
               {page === 'calendario' && <CalendarioMaestro {...props} />}
             </>
         }

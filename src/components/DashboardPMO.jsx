@@ -17,7 +17,7 @@ function estadoColor(estado) {
 }
 
 export default function DashboardPMO({ proyectos, checklist, obras, eventos }) {
-  const activos = proyectos.filter(p => p.estado === 'activo' || p.estado === 'en_ejecucion')
+  const activos = proyectos.filter(p => p.estado_general === 'En curso')
   const totalChecklist = checklist.length
   const completados = checklist.filter(c => c.estado === 'completado').length
   const pctGlobal = totalChecklist ? Math.round((completados / totalChecklist) * 100) : 0
@@ -50,11 +50,21 @@ export default function DashboardPMO({ proyectos, checklist, obras, eventos }) {
           {proyectos.length === 0
             ? <p style={{ color: '#9CA3AF', fontSize: 13 }}>Sin proyectos cargados</p>
             : proyectos.slice(0, 8).map(p => (
-              <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F3F4F6' }}>
-                <span style={{ fontSize: 13, color: dark, fontWeight: 500 }}>{p.nombre}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: 'white', background: estadoColor(p.estado), padding: '2px 8px', borderRadius: 20 }}>
-                  {p.estado || 'sin estado'}
-                </span>
+              <div key={p.id} style={{ padding: '8px 0', borderBottom: '1px solid #F3F4F6' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, color: dark, fontWeight: 500 }}>{p.nombre}</span>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: 'white', background: estadoColor(p.estado_general), padding: '2px 8px', borderRadius: 20 }}>
+                    {p.estado_general || 'sin estado'}
+                  </span>
+                </div>
+                {p.avance_total != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ flex: 1, height: 4, background: '#F0EDE8', borderRadius: 2 }}>
+                      <div style={{ height: 4, borderRadius: 2, background: p.avance_total >= 100 ? '#10B981' : orange, width: `${p.avance_total}%` }} />
+                    </div>
+                    <span style={{ fontSize: 11, color: '#6B7280', minWidth: 28 }}>{p.avance_total}%</span>
+                  </div>
+                )}
               </div>
             ))
           }

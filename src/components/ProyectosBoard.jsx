@@ -3,15 +3,16 @@ import { useState } from 'react'
 const orange = '#E8641A'
 const dark = '#1A1A1A'
 
-const ESTADOS = ['planificacion', 'en_ejecucion', 'activo', 'pausado', 'completado']
-const ESTADO_LABELS = { planificacion: 'Planificación', en_ejecucion: 'En ejecución', activo: 'Activo', pausado: 'Pausado', completado: 'Completado' }
-const ESTADO_COLORS = { planificacion: '#8B5CF6', en_ejecucion: '#3B82F6', activo: '#10B981', pausado: '#F59E0B', completado: '#6B7280' }
+const ESTADOS = ['En curso', 'Pausado', 'Finalizado', 'Sin estado']
+const ESTADO_LABELS = { 'En curso': 'En curso', 'Pausado': 'Pausado', 'Finalizado': 'Finalizado', 'Sin estado': 'Sin estado' }
+const ESTADO_COLORS = { 'En curso': '#10B981', 'Pausado': '#F59E0B', 'Finalizado': '#6B7280', 'Sin estado': '#D1D5DB' }
 
 function pctChecklist(checklist, proyectoId) {
-  const items = checklist.filter(c => c.proyecto_armar_id === proyectoId)
+  const items = checklist.filter(c => c.proyecto_armar_id === proyectoId && c.aplica !== false)
   if (!items.length) return null
-  const done = items.filter(c => c.estado === 'completado').length
-  return Math.round((done / items.length) * 100)
+  const totalPeso = items.reduce((s, c) => s + (c.peso || 1), 0)
+  const donePeso = items.filter(c => c.estado === 'completado').reduce((s, c) => s + (c.peso || 1), 0)
+  return totalPeso ? Math.round((donePeso / totalPeso) * 100) : 0
 }
 
 export default function ProyectosBoard({ proyectos, checklist }) {
@@ -25,9 +26,9 @@ export default function ProyectosBoard({ proyectos, checklist }) {
   const byEstado = {}
   ESTADOS.forEach(e => { byEstado[e] = [] })
   filtered.forEach(p => {
-    const e = p.estado || 'planificacion'
-    if (!byEstado[e]) byEstado[e] = []
-    byEstado[e].push(p)
+    const e = p.estado_general || 'Sin estado'
+    const key = ESTADOS.includes(e) ? e : 'Sin estado'
+    byEstado[key].push(p)
   })
 
   return (
@@ -51,6 +52,7 @@ export default function ProyectosBoard({ proyectos, checklist }) {
               <span style={{ fontSize: 12, color: '#9CA3AF', marginLeft: 'auto' }}>{byEstado[estado]?.length || 0}</span>
             </div>
             {(byEstado[estado] || []).map(p => {
+              const avance = p.avance_total ?? null
               const pct = pctChecklist(checklist, p.id)
               return (
                 <div key={p.id} onClick={() => setSelected(p)}
@@ -58,13 +60,21 @@ export default function ProyectosBoard({ proyectos, checklist }) {
                   onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)'}
                   onMouseLeave={e => e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)'}
                 >
-                  <div style={{ fontSize: 13, fontWeight: 700, color: dark, marginBottom: 4 }}>{p.nombre}</div>
-                  {p.cliente && <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8 }}>{p.cliente}</div>}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: dark, marginBottom: 2 }}>{p.nombre}</div>
+                  {p.comitente && <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 8 }}>{p.comitente}</div>}
+                  {avance !== null && (
+                    <div style={{ marginBottom: 6 }}>
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 3 }}>Avance obra: {avance}%</div>
+                      <div style={{ height: 4, background: '#F0EDE8', borderRadius: 2 }}>
+                        <div style={{ height: 4, background: avance >= 100 ? '#10B981' : orange, borderRadius: 2, width: `${avance}%` }} />
+                      </div>
+                    </div>
+                  )}
                   {pct !== null && (
                     <div>
-                      <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 4 }}>Checklist: {pct}%</div>
+                      <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 3 }}>Checklist: {pct}%</div>
                       <div style={{ height: 4, background: '#F0EDE8', borderRadius: 2 }}>
-                        <div style={{ height: 4, background: pct === 100 ? '#10B981' : orange, borderRadius: 2, width: `${pct}%`, transition: 'width 0.3s' }} />
+                        <div style={{ height: 4, background: pct >= 100 ? '#10B981' : '#8B5CF6', borderRadius: 2, width: `${pct}%` }} />
                       </div>
                     </div>
                   )}

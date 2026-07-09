@@ -12,10 +12,10 @@ const PRIORIDAD_CFG = {
 }
 
 const TIPO_CFG = {
-  manual:       { label: 'Manual',     bg: '#F3F4F6', color: '#6B7280' },
-  revision:     { label: 'Revisión',   bg: '#EDE9FE', color: '#5B21B6' },
-  cliente:      { label: 'Cliente',    bg: '#ECFDF5', color: '#065F46' },
-  alerta_auto:  { label: 'Auto',       bg: '#FEF3C7', color: '#D97706' },
+  manual:       { label: 'Gestión interna', bg: '#F3F4F6', color: '#6B7280' },
+  revision:     { label: 'Revisión obra',   bg: '#EDE9FE', color: '#5B21B6' },
+  cliente:      { label: 'Comunicación cliente', bg: '#ECFDF5', color: '#065F46' },
+  alerta_auto:  { label: 'Alerta sistema',  bg: '#FEF3C7', color: '#D97706' },
 }
 
 function diasRestantes(fecha) {
@@ -209,12 +209,12 @@ export default function TareasPage({ proyectos, usuario }) {
                 </select>
               </div>
               <div>
-                <Lbl>Tipo</Lbl>
+                <Lbl>Categoría</Lbl>
                 <select value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))} style={inputSt}>
-                  <option value="manual">Manual</option>
-                  <option value="revision">Revisión</option>
-                  <option value="cliente">Cliente</option>
-                  <option value="alerta_auto">Alerta auto</option>
+                  <option value="manual">Gestión interna</option>
+                  <option value="revision">Revisión de obra</option>
+                  <option value="cliente">Comunicación con cliente</option>
+                  <option value="alerta_auto">Alerta del sistema</option>
                 </select>
               </div>
               <div>

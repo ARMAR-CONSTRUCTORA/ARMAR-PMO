@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { loginUsuario, loadProyectosArmar, loadChecklistItems, loadProjects, loadPresupuestosSimple, loadCalendarioEventos } from './lib/supabase'
+import { loginUsuario, loadProyectosArmar, loadChecklistItems, loadProjects, loadPresupuestosSimple, loadCalendarioEventos, loadTareasPMO } from './lib/supabase'
 import Sidebar from './components/Sidebar'
 import DashboardPMO from './components/DashboardPMO'
 import ProyectosBoard from './components/ProyectosBoard'
@@ -20,19 +20,21 @@ export default function App() {
   const [obras,        setObras]        = useState([])
   const [presupuestos, setPresupuestos] = useState([])
   const [eventos,      setEventos]      = useState([])
+  const [tareas,       setTareas]       = useState([])
   const [dataLoaded,   setDataLoaded]   = useState(false)
 
   async function cargar() {
     setLoading(true)
-    const [p, c, o, pres, ev] = await Promise.all([
+    const [p, c, o, pres, ev, t] = await Promise.all([
       loadProyectosArmar(),
       loadChecklistItems(),
       loadProjects(),
       loadPresupuestosSimple(),
       loadCalendarioEventos(),
+      loadTareasPMO(),
     ])
     setProyectos(p); setChecklist(c); setObras(o)
-    setPresupuestos(pres); setEventos(ev)
+    setPresupuestos(pres); setEventos(ev); setTareas(t)
     setDataLoaded(true); setLoading(false)
   }
 
@@ -50,7 +52,7 @@ export default function App() {
 
   if (!usuario) return <LoginPage onLogin={handleLogin} />
 
-  const props = { proyectos, checklist, obras, presupuestos, eventos, onRefresh: cargar }
+  const props = { proyectos, checklist, obras, presupuestos, eventos, tareas, onRefresh: cargar }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#F7F7F5' }}>

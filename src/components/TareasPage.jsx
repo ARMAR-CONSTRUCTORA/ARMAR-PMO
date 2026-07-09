@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { loadTareasPMO, upsertTareaPMO, deleteTareaPMO } from '../lib/supabase'
+import { getStoredToken, connectGoogleCalendar, crearEventoCalendar, clearToken } from '../lib/googleCalendar'
 
 const orange = '#E8641A'
 const dark = '#1A1A1A'
@@ -82,6 +83,55 @@ export default function TareasPage({ proyectos, usuario }) {
   const [saving, setSaving] = useState(false)
   const [filtro, setFiltro] = useState('pendiente')
   const [prioFiltro, setPrioFiltro] = useState('todas')
+  const [gToken, setGToken] = useState(() => getStoredToken())
+  const [calLoading, setCalLoading] = useState(false)
+  const [calMsg, setCalMsg] = useState(null)
+
+  async function handleConnectGoogle() {
+    try {
+      setCalLoading(true)
+      const token = await connectGoogleCalendar()
+      setGToken(token)
+      setCalMsg({ type: 'ok', text: 'Google Calendar conectado ✓' })
+      setTimeout(() => setCalMsg(null), 3000)
+    } catch (e) {
+      setCalMsg({ type: 'err', text: e.message || 'No se pudo conectar' })
+      setTimeout(() => setCalMsg(null), 4000)
+    } finally {
+      setCalLoading(false)
+    }
+  }
+
+  async function enviarACalendar(tarea, proyectoNombre) {
+    let token = getStoredToken()
+    if (!token) {
+      try {
+        setCalLoading(true)
+        token = await connectGoogleCalendar()
+        setGToken(token)
+      } catch {
+        return
+      } finally {
+        setCalLoading(false)
+      }
+    }
+    try {
+      setCalLoading(true)
+      await crearEventoCalendar(token, tarea, proyectoNombre)
+      setCalMsg({ type: 'ok', text: 'Evento creado en Google Calendar con recordatorio ✓' })
+      setTimeout(() => setCalMsg(null), 4000)
+    } catch (e) {
+      if (e.message?.includes('401') || e.message?.includes('Invalid')) {
+        clearToken(); setGToken(null)
+        setCalMsg({ type: 'err', text: 'Sesión expirada — reconectá Google Calendar' })
+      } else {
+        setCalMsg({ type: 'err', text: e.message || 'Error al crear evento' })
+      }
+      setTimeout(() => setCalMsg(null), 4000)
+    } finally {
+      setCalLoading(false)
+    }
+  }
 
   async function cargar() {
     setLoading(true)
@@ -133,10 +183,27 @@ export default function TareasPage({ proyectos, usuario }) {
           <h1 style={{ fontSize: 24, fontWeight: 800, color: dark, margin: 0 }}>Mis tareas PMO</h1>
           <p style={{ color: '#6B7280', fontSize: 14, marginTop: 4 }}>{pendientes} pendientes · {vencidas > 0 ? `${vencidas} vencidas` : 'todo al día'}</p>
         </div>
-        <button onClick={abrirNueva}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', background: orange, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-          + Nueva tarea
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {calMsg && (
+            <span style={{ fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, background: calMsg.type === 'ok' ? '#D1FAE5' : '#FEE2E2', color: calMsg.type === 'ok' ? '#065F46' : '#991B1B' }}>
+              {calMsg.text}
+            </span>
+          )}
+          {gToken
+            ? <button onClick={() => { clearToken(); setGToken(null) }}
+                style={{ padding: '7px 14px', background: '#D1FAE5', color: '#065F46', border: '1px solid #6EE7B7', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                📅 Google conectado ✓
+              </button>
+            : <button onClick={handleConnectGoogle} disabled={calLoading}
+                style={{ padding: '7px 14px', background: 'white', color: '#374151', border: '1px solid #E0DDD8', borderRadius: 10, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {calLoading ? 'Conectando…' : '📅 Conectar Google Calendar'}
+              </button>
+          }
+          <button onClick={abrirNueva}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '9px 18px', background: orange, color: 'white', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+            + Nueva tarea
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -188,11 +255,11 @@ export default function TareasPage({ proyectos, usuario }) {
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                       <span style={{ fontSize: 11, fontWeight: 600, background: pr.bg, color: pr.color, padding: '2px 8px', borderRadius: 10 }}>{pr.label}</span>
                       <span style={{ fontSize: 11, fontWeight: 600, background: tp.bg, color: tp.color, padding: '2px 8px', borderRadius: 10 }}>{tp.label}</span>
-                      <a href={googleCalendarUrl(t, proy?.nombre)} target="_blank" rel="noreferrer"
-                          title="Abrir en Google Calendar"
-                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#EBF5FB', border: '1px solid #BFDBFE', cursor: 'pointer', textDecoration: 'none', fontSize: 14 }}>
+                      <button onClick={() => gToken ? enviarACalendar(t, proy?.nombre) : window.open(googleCalendarUrl(t, proy?.nombre), '_blank')}
+                          title={gToken ? 'Crear evento en Google Calendar con recordatorio' : 'Abrir en Google Calendar'}
+                          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: gToken ? '#D1FAE5' : '#EBF5FB', border: `1px solid ${gToken ? '#6EE7B7' : '#BFDBFE'}`, cursor: 'pointer', fontSize: 14 }}>
                           📅
-                        </a>
+                        </button>
                       <button onClick={() => abrirEditar(t)}
                         style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #E0DDD8', background: 'white', cursor: 'pointer', fontSize: 14 }}>
                         ✏️
@@ -285,10 +352,15 @@ export default function TareasPage({ proyectos, usuario }) {
                 {saving ? 'Guardando…' : form.id ? 'Guardar cambios' : 'Crear tarea'}
               </button>
               {form.fecha_vencimiento && (
-                <a href={googleCalendarUrl(form, proyectos.find(p => p.id === form.proyecto_armar_id)?.nombre)} target="_blank" rel="noreferrer"
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: '#4285F4', color: 'white', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                  📅 Abrir en Google Calendar
-                </a>
+                gToken
+                  ? <button type="button" onClick={() => enviarACalendar(form, proyectos.find(p => p.id === form.proyecto_armar_id)?.nombre)} disabled={calLoading}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: '#10B981', color: 'white', borderRadius: 10, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                      {calLoading ? 'Creando…' : '📅 Crear en Google Calendar'}
+                    </button>
+                  : <a href={googleCalendarUrl(form, proyectos.find(p => p.id === form.proyecto_armar_id)?.nombre)} target="_blank" rel="noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '11px 16px', background: '#4285F4', color: 'white', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                      📅 Abrir en Google Calendar
+                    </a>
               )}
             </div>
           </div>

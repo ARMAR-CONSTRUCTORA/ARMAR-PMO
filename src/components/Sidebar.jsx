@@ -3,6 +3,7 @@ const dark = '#1A1A1A'
 
 const NAV = [
   { key: 'dashboard',  label: 'Dashboard',    icon: '◈' },
+  { key: 'tareas',     label: 'Mis tareas',   icon: '✓' },
   { key: 'proyectos',  label: 'Proyectos',    icon: '⬡' },
   { key: 'obras',      label: 'Obras',        icon: '⛏' },
   { key: 'alertas',   label: 'Alertas',      icon: '⚠' },

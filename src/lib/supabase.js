@@ -68,6 +68,37 @@ export async function loadCronogramas() {
   return data || []
 }
 
+export async function loadTareasPMO() {
+  const { data } = await supabase
+    .from('pmo_tareas')
+    .select('*')
+    .order('fecha_vencimiento', { ascending: true, nullsFirst: false })
+  return data || []
+}
+
+export async function upsertTareaPMO(tarea) {
+  const out = {
+    titulo: tarea.titulo || '',
+    descripcion: tarea.descripcion || '',
+    proyecto_armar_id: tarea.proyecto_armar_id || null,
+    tipo: tarea.tipo || 'manual',
+    estado: tarea.estado || 'pendiente',
+    prioridad: tarea.prioridad || 'normal',
+    fecha_vencimiento: tarea.fecha_vencimiento || null,
+    fecha_recordatorio: tarea.fecha_recordatorio || null,
+    origen: tarea.origen || 'manual',
+    google_event_id: tarea.google_event_id || null,
+    updated_at: new Date().toISOString(),
+  }
+  if (tarea.id) out.id = tarea.id
+  const { data } = await supabase.from('pmo_tareas').upsert(out).select().single()
+  return data
+}
+
+export async function deleteTareaPMO(id) {
+  await supabase.from('pmo_tareas').delete().eq('id', id)
+}
+
 export async function upsertChecklistItem(item) {
   const out = {
     proyecto_armar_id: item.proyecto_armar_id,

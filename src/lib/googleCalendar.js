@@ -61,6 +61,16 @@ export function connectGoogleCalendar() {
   })
 }
 
+export async function eliminarEventoCalendar(accessToken, googleEventId) {
+  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  })
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    throw new Error(`Error al eliminar evento (${res.status})`)
+  }
+}
+
 export async function crearEventoCalendar(accessToken, tarea, proyectoNombre) {
   const titulo = `[PMO] ${tarea.titulo}${proyectoNombre ? ' — ' + proyectoNombre : ''}`
 

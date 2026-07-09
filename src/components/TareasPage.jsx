@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { loadTareasPMO, upsertTareaPMO, deleteTareaPMO } from '../lib/supabase'
-import { getStoredToken, connectGoogleCalendar, crearEventoCalendar, clearToken } from '../lib/googleCalendar'
+import { getStoredToken, connectGoogleCalendar, crearEventoCalendar, eliminarEventoCalendar, clearToken } from '../lib/googleCalendar'
 
 const orange = '#E8641A'
 const dark = '#1A1A1A'
@@ -117,7 +117,12 @@ export default function TareasPage({ proyectos, usuario }) {
     }
     try {
       setCalLoading(true)
-      await crearEventoCalendar(token, tarea, proyectoNombre)
+      const evento = await crearEventoCalendar(token, tarea, proyectoNombre)
+      // Guardar el google_event_id en Supabase para poder eliminarlo después
+      if (evento?.id && tarea.id) {
+        await upsertTareaPMO({ ...tarea, google_event_id: evento.id })
+        setTareas(prev => prev.map(x => x.id === tarea.id ? { ...x, google_event_id: evento.id } : x))
+      }
       setCalMsg({ type: 'ok', text: 'Evento creado en Google Calendar con recordatorio ✓' })
       setTimeout(() => setCalMsg(null), 4000)
     } catch (e) {
@@ -159,10 +164,21 @@ export default function TareasPage({ proyectos, usuario }) {
     setTareas(prev => prev.map(x => x.id === t.id ? { ...x, estado: nuevoEstado } : x))
   }
 
-  async function eliminar(id) {
+  async function eliminar(t) {
     if (!confirm('¿Eliminar esta tarea?')) return
-    await deleteTareaPMO(id)
-    setTareas(prev => prev.filter(x => x.id !== id))
+    // Si tiene evento en Google Calendar, lo elimina también
+    if (t.google_event_id) {
+      const token = getStoredToken()
+      if (token) {
+        try {
+          await eliminarEventoCalendar(token, t.google_event_id)
+        } catch (e) {
+          console.warn('No se pudo eliminar el evento de Calendar:', e.message)
+        }
+      }
+    }
+    await deleteTareaPMO(t.id)
+    setTareas(prev => prev.filter(x => x.id !== t.id))
   }
 
   const filtered = tareas.filter(t => {
@@ -264,7 +280,7 @@ export default function TareasPage({ proyectos, usuario }) {
                         style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #E0DDD8', background: 'white', cursor: 'pointer', fontSize: 14 }}>
                         ✏️
                       </button>
-                      <button onClick={() => eliminar(t.id)}
+                      <button onClick={() => eliminar(t)}
                         style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid #FEE2E2', background: '#FEF2F2', cursor: 'pointer', fontSize: 13 }}>
                         🗑
                       </button>
